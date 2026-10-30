@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - name: The built plugin loads
+        run: |
+          npx tsc
+          node -e "import('./dist/index.js').then(m => {
+            if (!m.default?.id || typeof m.default.setup !== 'function') {
+              throw new Error('plugin default export is not a v2 definition')
+            }
+            console.log('loads:', m.default.id)
+          })"
