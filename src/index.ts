@@ -6,9 +6,9 @@
  */
 
 import { Plugin } from "@opencode/plugin"
-import { executeHashlineEditTool } from "./hashline-edit-executor"
-import type { ToolContext } from "./hashline-edit-executor"
-import { HASHLINE_EDIT_DESCRIPTION } from "./tool-description"
+import { executeHashlineEditTool } from "./hashline-edit-executor.js"
+import type { ToolContext } from "./hashline-edit-executor.js"
+import { HASHLINE_EDIT_DESCRIPTION } from "./tool-description.js"
 
 const TOOL_NAME = "hashline_edit"
 

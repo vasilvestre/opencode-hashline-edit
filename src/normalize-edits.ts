@@ -2,9 +2,9 @@
  * Normalize raw hashline edits to internal format
  */
 
-import { RawHashlineEdit } from "./types"
-import { HashlineEdit } from "./types"
-import { getRefPattern } from "./validation"
+import type { RawHashlineEdit } from "./types.js"
+import type { HashlineEdit } from "./types.js"
+import { getRefPattern } from "./validation.js"
 
 export function normalizeHashlineEdits(rawEdits: RawHashlineEdit[], hashLength: number = 2): HashlineEdit[] {
   const refPattern = getRefPattern(hashLength)

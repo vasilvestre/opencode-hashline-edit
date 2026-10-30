@@ -1,5 +1,6 @@
-import { HashlineEdit, isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types"
-import { parseLineRef, computeContextHash } from "./validation"
+import type { HashlineEdit } from "./types.js"
+import { isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types.js"
+import { parseLineRef, computeContextHash } from "./validation.js"
 
 export function applySetLine(
   lines: string[],

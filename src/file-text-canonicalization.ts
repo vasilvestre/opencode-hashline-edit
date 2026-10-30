@@ -2,7 +2,7 @@
  * File text canonicalization - normalizes line endings and extracts hashline tags
  */
 
-import { computeContextHash, getOutputPattern } from "./validation"
+import { computeContextHash, getOutputPattern } from "./validation.js"
 
 export interface CanonicalEnvelope {
   content: string

@@ -1,6 +1,6 @@
-import { dedupeEdits } from "./edit-deduplication"
-import { collectLineRefs, detectOverlappingRanges, getEditLineNumber } from "./edit-ordering"
-import type { HashlineEdit, HashlineApplyReport } from "./types"
+import { dedupeEdits } from "./edit-deduplication.js"
+import { collectLineRefs, detectOverlappingRanges, getEditLineNumber } from "./edit-ordering.js"
+import type { HashlineEdit, HashlineApplyReport } from "./types.js"
 import {
   applyAppend,
   applyInsertAfter,
@@ -9,8 +9,8 @@ import {
   applyReplaceLines,
   applyReplaceText,
   applySetLine,
-} from "./edit-operation-primitives"
-import { validateLineRefs, computeContextHash } from "./validation"
+} from "./edit-operation-primitives.js"
+import { validateLineRefs, computeContextHash } from "./validation.js"
 
 function arraysEqual(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false

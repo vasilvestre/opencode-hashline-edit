@@ -2,9 +2,9 @@
  * Validation utilities for hashline edits
  */
 
-import { HashlineMismatchError, NoopLoopError } from "./types"
-export { HashlineMismatchError, NoopLoopError } from "./types"
-import { NIBBLE_STR, DEFAULT_HASH_LENGTH, MIN_HASH_LENGTH, MAX_HASH_LENGTH, buildRefPattern, buildOutputPattern, buildHashDict } from "./constants"
+import { HashlineMismatchError, NoopLoopError } from "./types.js"
+export { HashlineMismatchError, NoopLoopError } from "./types.js"
+import { NIBBLE_STR, DEFAULT_HASH_LENGTH, MIN_HASH_LENGTH, MAX_HASH_LENGTH, buildRefPattern, buildOutputPattern, buildHashDict } from "./constants.js"
 
 export function computeLineHash(content: string, hashLength: number = DEFAULT_HASH_LENGTH): string {
   let hash = 0

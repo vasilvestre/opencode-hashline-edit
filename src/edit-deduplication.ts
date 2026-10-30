@@ -1,4 +1,5 @@
-import { HashlineEdit, isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types"
+import type { HashlineEdit } from "./types.js"
+import { isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types.js"
 
 export interface DedupeResult {
   edits: HashlineEdit[]

@@ -1,5 +1,5 @@
-import { HashlineEdit } from "./types"
-import { parseLineRef } from "./validation"
+import type { HashlineEdit } from "./types.js"
+import { parseLineRef } from "./validation.js"
 
 export function getEditLineNumber(edit: HashlineEdit): number {
   if (edit.op === "replace" && edit.pos) {

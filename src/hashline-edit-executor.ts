@@ -2,14 +2,14 @@
  * Hashline edit tool executor - uses Node.js fs for file operations
  */
 
-import { applyHashlineEditsWithReport } from "./edit-operations"
-import { countLineDiffs, generateUnifiedDiff } from "./diff-utils"
-import { canonicalizeFileText, restoreFileText } from "./file-text-canonicalization"
-import { normalizeHashlineEdits } from "./normalize-edits"
-import type { RawHashlineEdit, HashlineEdit } from "./types"
-import { HashlineMismatchError, NoopLoopError, checkNoopLoop, resetNoopLoop } from "./validation"
-import { runFormattersForFile } from "./formatter-trigger"
-import { DEFAULT_CONFIG } from "./constants"
+import { applyHashlineEditsWithReport } from "./edit-operations.js"
+import { countLineDiffs, generateUnifiedDiff } from "./diff-utils.js"
+import { canonicalizeFileText, restoreFileText } from "./file-text-canonicalization.js"
+import { normalizeHashlineEdits } from "./normalize-edits.js"
+import type { RawHashlineEdit, HashlineEdit } from "./types.js"
+import { HashlineMismatchError, NoopLoopError, checkNoopLoop, resetNoopLoop } from "./validation.js"
+import { runFormattersForFile } from "./formatter-trigger.js"
+import { DEFAULT_CONFIG } from "./constants.js"
 import { readFile, writeFile, unlink, rename as fsRename, access, constants } from "fs/promises"
 import { dirname } from "path"
 import { fileURLToPath } from "url"
