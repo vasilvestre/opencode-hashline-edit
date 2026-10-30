@@ -1,5 +1,7 @@
+import { parseLineRef } from "./validation";
 export function applySetLine(lines, posRef, newLines, _options = {}) {
-    const parsed = parsePos(posRef);
+    const { hashLength = 2 } = _options;
+    const parsed = parseLineRef(posRef, hashLength);
     if (!parsed)
         throw new Error(`Invalid pos ref: ${posRef}`);
     const { line } = parsed;
@@ -17,8 +19,9 @@ export function applySetLine(lines, posRef, newLines, _options = {}) {
     return result;
 }
 export function applyReplaceLines(lines, posRef, endRef, newLines, _options = {}) {
-    const parsedPos = parsePos(posRef);
-    const parsedEnd = parsePos(endRef);
+    const { hashLength = 2 } = _options;
+    const parsedPos = parseLineRef(posRef, hashLength);
+    const parsedEnd = parseLineRef(endRef, hashLength);
     if (!parsedPos || !parsedEnd)
         throw new Error(`Invalid pos/end ref`);
     const { line: startLine } = parsedPos;
@@ -32,7 +35,8 @@ export function applyReplaceLines(lines, posRef, endRef, newLines, _options = {}
     return result;
 }
 export function applyInsertAfter(lines, posRef, newLines, _options = {}) {
-    const parsed = parsePos(posRef);
+    const { hashLength = 2 } = _options;
+    const parsed = parseLineRef(posRef, hashLength);
     if (!parsed)
         throw new Error(`Invalid pos ref: ${posRef}`);
     const { line } = parsed;
@@ -47,7 +51,8 @@ export function applyInsertAfter(lines, posRef, newLines, _options = {}) {
     return result;
 }
 export function applyInsertBefore(lines, posRef, newLines, _options = {}) {
-    const parsed = parsePos(posRef);
+    const { hashLength = 2 } = _options;
+    const parsed = parseLineRef(posRef, hashLength);
     if (!parsed)
         throw new Error(`Invalid pos ref: ${posRef}`);
     const { line } = parsed;
@@ -69,10 +74,18 @@ export function applyPrepend(lines, newLines) {
     const linesArr = Array.isArray(newLines) ? newLines : newLines.split("\n");
     return [...linesArr, ...lines];
 }
-function parsePos(ref) {
-    const match = ref.match(/^([0-9]+)#([A-Z0-9]{2})$/);
-    if (!match)
-        return null;
-    return { line: parseInt(match[1], 10) };
+export function applyReplaceText(lines, oldText, newText) {
+    const content = lines.join("\n");
+    const index = content.indexOf(oldText);
+    if (index === -1) {
+        throw new Error(`Text not found: "${oldText}"`);
+    }
+    // Check for uniqueness
+    const secondIndex = content.indexOf(oldText, index + 1);
+    if (secondIndex !== -1) {
+        throw new Error(`Text matches multiple locations: "${oldText}"`);
+    }
+    const newContent = content.slice(0, index) + newText + content.slice(index + oldText.length);
+    return newContent.split("\n");
 }
 //# sourceMappingURL=edit-operation-primitives.js.map

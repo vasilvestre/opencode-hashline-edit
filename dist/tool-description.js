@@ -4,7 +4,7 @@
 export const HASHLINE_EDIT_DESCRIPTION = `Edit files using LINE#ID format for precise, safe modifications.
 
 ## LINE#ID FORMAT
-Each line is identified by: \`LINE#ID\` where ID is a 2-char hash of line content.
+Each line is identified by: \`LINE#ID\` where ID is a 2-char hash of line content (configurable 2-4 chars).
 Example: \`42#ZP\` means line 42 with content hash "ZP".
 
 ## HOW IT WORKS
@@ -12,6 +12,7 @@ Example: \`42#ZP\` means line 42 with content hash "ZP".
 2. Use those exact LINE#ID tags as anchors for edits
 3. Before applying, tool verifies content hashes match (prevents conflicts)
 4. Edits applied atomically with deduplication and overlap detection
+5. Successful edits return fresh anchors for chained edits without re-reading
 
 ## OPERATIONS
 
@@ -46,16 +47,38 @@ Insert lines BEFORE a given line, or at start of file.
 { "op": "prepend", "lines": "added at start of file" }
 \`\`\`
 
+### replace_text
+Replace an exact unique substring without line anchors.
+- \`oldText\`: Exact text to find (must match exactly once)
+- \`newText\`: Replacement text
+
+\`\`\`json
+{ "op": "replace_text", "oldText": "function foo()", "newText": "function bar()" }
+\`\`\`
+
 ## SPECIAL CASES
 - \`delete: true\` with empty edits → deletes file
 - \`rename: "new/path"\` → moves file after edits
+- \`hashLength: 2-4\` → configure hash length (default 2)
 - Multiple edits batched in one call → applied atomically, sorted by line (bottom-up)
 
 ## SAFETY
-- Hash validation prevents editing stale content
+- Hash validation prevents editing stale content (context-aware: includes neighbor lines)
 - Overlapping edits rejected
-- No-op edits reported
+- No-op edits reported; 3 consecutive no-ops throws error
 - Formatters run automatically after write (if configured)
+- Strict patch content: no diff markers or display prefixes allowed
+
+## CHAINED EDITS
+After a successful edit, the result includes fresh LINE#ID anchors for the changed region:
+\`\`\`
+Updated src/file.ts
+--- Fresh Anchors ---
+42#ZP|function bar() {
+43#KT|  return 42
+44#WS|}
+\`\`\`
+Use these fresh anchors directly in the next edit call without re-reading.
 
 ## READING FILES
 When you read a file, each line includes its LINE#ID tag:

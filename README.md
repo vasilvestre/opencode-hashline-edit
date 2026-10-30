@@ -4,11 +4,12 @@ LINE#ID edit tool for OpenCode v2 — safe, hash-validated line-based file editi
 
 ## Features
 
-- **LINE#ID addressing**: Each line identified by `line#hash` (e.g., `42#ZP`)
-- **Hash validation**: Prevents editing stale content — rejects if file changed
-- **Three operations**: `replace` (single/range), `append`, `prepend`
+- **LINE#ID addressing**: Each line identified by `line#hash` (e.g., `42#ZP`), configurable 2-4 chars
+- **Context-aware hash validation**: Hash includes neighbor lines — prevents stale edits even with identical content
+- **Four operations**: `replace` (single/range), `append`, `prepend`, `replace_text` (exact substring)
 - **Atomic batching**: Multiple edits sorted bottom-up, applied atomically
-- **Safety**: Overlap detection, no-op detection, deduplication
+- **Safety**: Overlap detection, no-op detection (3-strike loop guard), deduplication
+- **Chained edits**: Fresh anchors returned after successful edit — no re-read needed
 - **Formatters**: Auto-runs configured formatters after write
 - **OpenCode v2 native**: Uses `/api/fs/read` and `/api/experimental/fs/write`
 
@@ -64,18 +65,41 @@ function foo() {     2#AB
 { "op": "prepend", "pos": "1#ZP", "lines": "// header comment" }
 ```
 
+### Replace exact text (no anchors needed)
+```json
+{ "op": "replace_text", "oldText": "function foo()", "newText": "function bar()" }
+```
+
 ### Delete file
 ```json
 { "delete": true, "edits": [] }
 ```
 
+### Configure hash length (2-4 chars)
+```json
+{ "hashLength": 3, "edits": [...] }
+```
+
 ## Safety Features
 
-- **Hash validation**: Content hash verified before every edit
+- **Context-aware hash validation**: Hash includes prev/next lines — identical lines in different contexts get different hashes
 - **Overlap detection**: Rejects overlapping ranges
 - **Deduplication**: Removes duplicate edits automatically
-- **No-op detection**: Reports edits that produce no changes
+- **No-op detection**: Reports edits that produce no changes; 3 consecutive no-ops throws error
 - **Bottom-up application**: Line numbers stay valid during batch edits
+- **Strict patch content**: Rejects diff markers or display prefixes
+
+## Chained Edits
+
+After a successful edit, the result includes fresh LINE#ID anchors for the changed region:
+```
+Updated src/file.ts
+--- Fresh Anchors ---
+42#ZP|function bar() {
+43#KT|  return 42
+44#WS|}
+```
+Use these fresh anchors directly in the next edit call without re-reading.
 
 ## API
 
@@ -94,6 +118,9 @@ const tool = createHashlineEditTool({
 ```typescript
 import type { RawHashlineEdit, HashlineEdit, HashlineApplyReport } from "@vasilvestre/opencode-hashline-edit"
 ```
+
+### Configuration Options (via args)
+- `hashLength`: 2-4 (default: 2) — characters per line hash
 
 ## License
 

@@ -14,6 +14,7 @@ export function createHashlineEditTool(pluginCtx) {
             filePath: tool.schema.string().describe("Absolute path to the file to edit"),
             delete: tool.schema.boolean().optional().describe("Delete file instead of editing"),
             rename: tool.schema.string().optional().describe("Rename output file path after edits"),
+            hashLength: tool.schema.number().optional().describe("Hash length 2-4 (default: 2)"),
             edits: tool.schema
                 .array(tool.schema.object({
                 op: tool.schema
@@ -21,6 +22,7 @@ export function createHashlineEditTool(pluginCtx) {
                     tool.schema.literal("replace"),
                     tool.schema.literal("append"),
                     tool.schema.literal("prepend"),
+                    tool.schema.literal("replace_text"),
                 ])
                     .describe("Hashline edit operation mode"),
                 pos: tool.schema.string().optional().describe("Primary anchor in LINE#ID format (e.g., '42#ZP')"),
@@ -30,7 +32,10 @@ export function createHashlineEditTool(pluginCtx) {
                     tool.schema.array(tool.schema.string()),
                     tool.schema.string(),
                 ])
-                    .describe("Replacement or inserted lines"),
+                    .optional()
+                    .describe("Replacement or inserted lines (for replace/append/prepend)"),
+                oldText: tool.schema.string().optional().describe("Exact text to find (for replace_text)"),
+                newText: tool.schema.string().optional().describe("Replacement text (for replace_text)"),
             }))
                 .describe("Array of edit operations to apply (empty when delete=true)"),
         },

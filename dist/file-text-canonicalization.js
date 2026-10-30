@@ -1,16 +1,17 @@
 /**
  * File text canonicalization - normalizes line endings and extracts hashline tags
  */
-import { computeLineHash, HASHLINE_OUTPUT_PATTERN } from "./validation";
-export function canonicalizeFileText(rawContent) {
+import { computeContextHash, getOutputPattern } from "./validation";
+export function canonicalizeFileText(rawContent, hashLength = 2) {
     // Normalize line endings
     const content = rawContent.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const lines = content.split("\n");
     const lineHashes = new Map();
     const canonicalLines = [];
+    const outputPattern = getOutputPattern(hashLength);
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        const match = line.match(HASHLINE_OUTPUT_PATTERN);
+        const match = line.match(outputPattern);
         if (match) {
             // Line has hashline tag - strip it
             canonicalLines.push(match[3]);
@@ -18,7 +19,7 @@ export function canonicalizeFileText(rawContent) {
         }
         else {
             canonicalLines.push(line);
-            lineHashes.set(i + 1, computeLineHash(line));
+            lineHashes.set(i + 1, computeContextHash(canonicalLines, canonicalLines.length - 1, hashLength));
         }
     }
     return {
@@ -26,7 +27,7 @@ export function canonicalizeFileText(rawContent) {
         lineHashes,
     };
 }
-export function restoreFileText(canonicalContent, envelope) {
+export function restoreFileText(canonicalContent, envelope, hashLength = 2) {
     const lines = canonicalContent.split("\n");
     const result = [];
     for (let i = 0; i < lines.length; i++) {

@@ -1,4 +1,4 @@
-import { HashlineEdit, isReplaceEdit, isAppendEdit, isPrependEdit } from "./types"
+import { HashlineEdit, isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types"
 
 export interface DedupeResult {
   edits: HashlineEdit[]
@@ -34,8 +34,13 @@ function editKey(edit: HashlineEdit): string {
   if (isAppendEdit(edit) && edit.pos) parts.push("pos:" + edit.pos)
   if (isPrependEdit(edit) && edit.pos) parts.push("pos:" + edit.pos)
 
-  const lines = Array.isArray(edit.lines) ? edit.lines.join("\n") : edit.lines
-  parts.push("lines:" + lines)
+  if (isReplaceTextEdit(edit)) {
+    parts.push("oldText:" + edit.oldText)
+    parts.push("newText:" + edit.newText)
+  } else {
+    const lines = Array.isArray(edit.lines) ? edit.lines.join("\n") : edit.lines
+    parts.push("lines:" + lines)
+  }
 
   return parts.join("|")
 }

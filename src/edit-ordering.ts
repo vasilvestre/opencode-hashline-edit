@@ -14,6 +14,10 @@ export function getEditLineNumber(edit: HashlineEdit): number {
     const parsed = parseLineRef(edit.pos)
     if (parsed) return parsed.line
   }
+  // replace_text doesn't use line anchors, so it goes last
+  if (edit.op === "replace_text") {
+    return -1
+  }
   return Infinity
 }
 
@@ -62,9 +66,12 @@ export function detectOverlappingRanges(edits: HashlineEdit[]): string | null {
     if (ranges[i].end >= ranges[i + 1].start) {
       const editA = ranges[i].edit
       const editB = ranges[i + 1].edit
+      // TypeScript narrowing: editA and editB are ReplaceEdit here
       const endA = editA.op === "replace" ? editA.end : ""
       const endB = editB.op === "replace" ? editB.end : ""
-      return `Overlapping edits: ${formatRef(editA.pos)}–${formatRef(endA)} overlaps ${formatRef(editB.pos)}–${formatRef(endB)}`
+      const posA = editA.op === "replace" ? editA.pos : ""
+      const posB = editB.op === "replace" ? editB.pos : ""
+      return `Overlapping edits: ${formatRef(posA)}–${formatRef(endA)} overlaps ${formatRef(posB)}–${formatRef(endB)}`
     }
   }
 

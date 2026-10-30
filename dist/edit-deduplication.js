@@ -1,4 +1,4 @@
-import { isReplaceEdit, isAppendEdit, isPrependEdit } from "./types";
+import { isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types";
 export function dedupeEdits(edits) {
     const seen = new Map();
     let deduplicatedEdits = 0;
@@ -28,8 +28,14 @@ function editKey(edit) {
         parts.push("pos:" + edit.pos);
     if (isPrependEdit(edit) && edit.pos)
         parts.push("pos:" + edit.pos);
-    const lines = Array.isArray(edit.lines) ? edit.lines.join("\n") : edit.lines;
-    parts.push("lines:" + lines);
+    if (isReplaceTextEdit(edit)) {
+        parts.push("oldText:" + edit.oldText);
+        parts.push("newText:" + edit.newText);
+    }
+    else {
+        const lines = Array.isArray(edit.lines) ? edit.lines.join("\n") : edit.lines;
+        parts.push("lines:" + lines);
+    }
     return parts.join("|");
 }
 //# sourceMappingURL=edit-deduplication.js.map

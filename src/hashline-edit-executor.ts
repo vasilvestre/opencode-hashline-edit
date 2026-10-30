@@ -8,14 +8,16 @@ import { countLineDiffs, generateUnifiedDiff } from "./diff-utils"
 import { canonicalizeFileText, restoreFileText } from "./file-text-canonicalization"
 import { normalizeHashlineEdits } from "./normalize-edits"
 import type { RawHashlineEdit, HashlineEdit } from "./types"
-import { HashlineMismatchError } from "./validation"
+import { HashlineMismatchError, NoopLoopError, checkNoopLoop, resetNoopLoop } from "./validation"
 import { runFormattersForFile } from "./formatter-trigger"
+import { DEFAULT_CONFIG } from "./constants"
 
 interface HashlineEditArgs {
   filePath: string
   edits: RawHashlineEdit[]
   delete?: boolean
   rename?: string
+  hashLength?: number
 }
 
 interface ToolContextWithMetadata extends ToolContext {
@@ -39,6 +41,7 @@ function buildSuccessMeta(
   afterContent: string,
   noopEdits: number,
   deduplicatedEdits: number,
+  freshAnchors?: Array<{ line: number; hash: string; content: string }>,
 ) {
   const unifiedDiff = generateUnifiedDiff(beforeContent, afterContent, effectivePath)
   const { additions, deletions } = countLineDiffs(beforeContent, afterContent)
@@ -64,6 +67,7 @@ function buildSuccessMeta(
       noopEdits,
       deduplicatedEdits,
       firstChangedLine,
+      freshAnchors: freshAnchors?.map((a) => `${a.line}#${a.hash}|${a.content}`),
       filediff: {
         file: effectivePath,
         path: effectivePath,
@@ -77,6 +81,12 @@ function buildSuccessMeta(
   }
 }
 
+function formatFreshAnchors(anchors: Array<{ line: number; hash: string; content: string }>): string {
+  if (!anchors || anchors.length === 0) return ""
+  const lines = anchors.map((a) => `${a.line}#${a.hash}|${a.content}`)
+  return `\n--- Fresh Anchors ---\n${lines.join("\n")}`
+}
+
 export async function executeHashlineEditTool(
   args: HashlineEditArgs,
   context: ToolContext,
@@ -85,7 +95,7 @@ export async function executeHashlineEditTool(
   try {
     const metadataContext = context as ToolContextWithMetadata
     const filePath = args.filePath
-    const { delete: deleteMode, rename } = args
+    const { delete: deleteMode, rename, hashLength = DEFAULT_CONFIG.hashLength } = args
 
     if (deleteMode && rename) {
       return "Error: delete and rename cannot be used together"
@@ -98,7 +108,7 @@ export async function executeHashlineEditTool(
       return "Error: edits parameter must be a non-empty array"
     }
 
-    const edits = deleteMode ? [] : normalizeHashlineEdits(args.edits)
+    const edits = deleteMode ? [] : normalizeHashlineEdits(args.edits, hashLength)
 
     // Use OpenCode v2 filesystem API
     const readResponse = await context.api.get(`/api/fs/read/${encodeURIComponent(filePath)}`)
@@ -122,11 +132,21 @@ export async function executeHashlineEditTool(
       return `Successfully deleted ${filePath}`
     }
 
-    const oldEnvelope = canonicalizeFileText(rawOldContent)
-    const applyResult = applyHashlineEditsWithReport(oldEnvelope.content, edits)
+    const oldEnvelope = canonicalizeFileText(rawOldContent, hashLength)
+    const applyResult = applyHashlineEditsWithReport(oldEnvelope.content, edits, hashLength)
     const canonicalNewContent = applyResult.content
 
+    // Noop loop guard
     if (canonicalNewContent === oldEnvelope.content && !rename) {
+      try {
+        // This will throw NoopLoopError if 3 consecutive no-ops
+        checkNoopLoop(filePath)
+      } catch (e: unknown) {
+        if (e instanceof NoopLoopError) {
+          return `Error: ${e.message}`
+        }
+        throw e
+      }
       let diagnostic = `No changes made to ${filePath}. The edits produced identical content.`
       if (applyResult.noopEdits > 0) {
         diagnostic += ` No-op edits: ${applyResult.noopEdits}. Re-read the file and provide content that differs from current lines.`
@@ -134,7 +154,10 @@ export async function executeHashlineEditTool(
       return `Error: ${diagnostic}`
     }
 
-    const writeContent = restoreFileText(canonicalNewContent, oldEnvelope)
+    // Successful edit - reset noop loop counter
+    resetNoopLoop(filePath)
+
+    const writeContent = restoreFileText(canonicalNewContent, oldEnvelope, hashLength)
 
     // Write via OpenCode v2 experimental API
     await context.api.post("/api/experimental/fs/write", {
@@ -153,13 +176,14 @@ export async function executeHashlineEditTool(
         const data = await formattedResponse.json()
         const formattedContent = (data as { content?: string }).content ?? ""
         if (formattedContent !== writeContent) {
-          const formattedEnvelope = canonicalizeFileText(formattedContent)
+          const formattedEnvelope = canonicalizeFileText(formattedContent, hashLength)
           const formattedMeta = buildSuccessMeta(
             filePath,
             oldEnvelope.content,
             formattedEnvelope.content,
             applyResult.noopEdits,
             applyResult.deduplicatedEdits,
+            applyResult.freshAnchors,
           )
           await publishToolMetadata(metadataContext, formattedMeta)
 
@@ -172,7 +196,7 @@ export async function executeHashlineEditTool(
             })
             return `Moved ${filePath} to ${rename}`
           }
-          return `Updated ${filePath} (formatted)`
+          return `Updated ${filePath} (formatted)${formatFreshAnchors(applyResult.freshAnchors ?? [])}`
         }
       }
     }
@@ -193,6 +217,7 @@ export async function executeHashlineEditTool(
       canonicalNewContent,
       applyResult.noopEdits,
       applyResult.deduplicatedEdits,
+      applyResult.freshAnchors,
     )
 
     await publishToolMetadata(metadataContext, meta)
@@ -201,11 +226,14 @@ export async function executeHashlineEditTool(
       return `Moved ${filePath} to ${rename}`
     }
 
-    return `Updated ${effectivePath}`
+    return `Updated ${effectivePath}${formatFreshAnchors(applyResult.freshAnchors ?? [])}`
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (error instanceof HashlineMismatchError) {
       return `Error: hash mismatch - ${message}\nTip: reuse LINE#ID entries from the latest read/edit output, or batch related edits in one call.`
+    }
+    if (error instanceof NoopLoopError) {
+      return `Error: ${message}`
     }
     return `Error: ${message}`
   }

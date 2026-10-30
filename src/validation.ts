@@ -2,22 +2,52 @@
  * Validation utilities for hashline edits
  */
 
-import { HashlineMismatchError } from "./types"
+import { HashlineMismatchError, NoopLoopError } from "./types"
+export { HashlineMismatchError, NoopLoopError } from "./types"
+import { NIBBLE_STR, DEFAULT_HASH_LENGTH, MIN_HASH_LENGTH, MAX_HASH_LENGTH, buildRefPattern, buildOutputPattern, buildHashDict } from "./constants"
 
-export const NIBBLE_STR = "ZPMQVRWSNKTXJBYH"
+export function computeLineHash(content: string, hashLength: number = DEFAULT_HASH_LENGTH): string {
+  let hash = 0
+  for (let i = 0; i < content.length; i++) {
+    hash = ((hash << 5) - hash + content.charCodeAt(i)) | 0
+  }
+  const dict = buildHashDict(hashLength)
+  const high = (hash >>> 4) & 0x0f
+  const low = hash & 0x0f
+  // For hashLength > 2, we need more bits
+  if (hashLength === 2) {
+    return `${NIBBLE_STR[high & 0x0f]}${NIBBLE_STR[low & 0x0f]}`
+  }
+  // For 3-4 chars, use more of the hash
+  const hashStr = hash.toString(16).padStart(8, "0")
+  return hashStr.slice(-hashLength).toUpperCase().replace(/[0-9A-F]/g, (c) => NIBBLE_STR[parseInt(c, 16) % NIBBLE_STR.length])
+}
 
-export const HASHLINE_DICT = Array.from({ length: 256 }, (_, i) => {
-  const high = i >>> 4
-  const low = i & 0x0f
-  return `${NIBBLE_STR[high]}${NIBBLE_STR[low]}`
-})
+export function computeContextHash(lines: string[], lineIndex: number, hashLength: number = DEFAULT_HASH_LENGTH): string {
+  // Context-based hashing: include prev, curr, next lines
+  const contextLines: string[] = []
+  if (lineIndex > 0) contextLines.push(lines[lineIndex - 1])
+  contextLines.push(lines[lineIndex])
+  if (lineIndex < lines.length - 1) contextLines.push(lines[lineIndex + 1])
+  const contextContent = contextLines.join("\n")
+  return computeLineHash(contextContent, hashLength)
+}
 
-export const HASHLINE_REF_PATTERN = /^([0-9]+)#([ZPMQVRWSNKTXJBYH]{2})$/
-export const HASHLINE_OUTPUT_PATTERN = /^([0-9]+)#([ZPMQVRWSNKTXJBYH]{2})\|(.*)$/
+export const HASHLINE_REF_PATTERN = buildRefPattern(DEFAULT_HASH_LENGTH)
+export const HASHLINE_OUTPUT_PATTERN = buildOutputPattern(DEFAULT_HASH_LENGTH)
+
+export function getRefPattern(hashLength: number): RegExp {
+  return buildRefPattern(hashLength)
+}
+
+export function getOutputPattern(hashLength: number): RegExp {
+  return buildOutputPattern(hashLength)
+}
 
 export function validateLineRefs(
   lines: string[],
   refs: Map<string, { line: number; hash: string }>,
+  hashLength: number = DEFAULT_HASH_LENGTH,
 ): void {
   for (const [ref, { line, hash }] of refs) {
     if (line < 1 || line > lines.length) {
@@ -25,7 +55,7 @@ export function validateLineRefs(
         `Line ${line} out of range (1-${lines.length}) for ref ${ref}`,
       )
     }
-    const actualHash = computeLineHash(lines[line - 1])
+    const actualHash = computeContextHash(lines, line - 1, hashLength)
     if (actualHash !== hash) {
       throw new HashlineMismatchError(
         `Hash mismatch at line ${line}: expected ${hash}, got ${actualHash}. ` +
@@ -35,18 +65,9 @@ export function validateLineRefs(
   }
 }
 
-export function computeLineHash(content: string): string {
-  let hash = 0
-  for (let i = 0; i < content.length; i++) {
-    hash = ((hash << 5) - hash + content.charCodeAt(i)) | 0
-  }
-  const high = (hash >>> 4) & 0x0f
-  const low = hash & 0x0f
-  return `${NIBBLE_STR[high & 0x0f]}${NIBBLE_STR[low & 0x0f]}`
-}
-
-export function parseLineRef(ref: string): { line: number; hash: string } | null {
-  const match = ref.match(HASHLINE_REF_PATTERN)
+export function parseLineRef(ref: string, hashLength: number = DEFAULT_HASH_LENGTH): { line: number; hash: string } | null {
+  const pattern = getRefPattern(hashLength)
+  const match = ref.match(pattern)
   if (!match) return null
   return { line: parseInt(match[1], 10), hash: match[2] }
 }
@@ -55,5 +76,25 @@ export function formatLineRef(line: number, hash: string): string {
   return `${line}#${hash}`
 }
 
-// Re-export for consumers
-export { HashlineMismatchError } from "./types"
+// Noop loop tracking
+const noopLoopCounter = new Map<string, number>()
+
+export function checkNoopLoop(filePath: string): void {
+  const count = noopLoopCounter.get(filePath) ?? 0
+  if (count >= 3) {
+    noopLoopCounter.delete(filePath)
+    throw new NoopLoopError(
+      `Three consecutive no-op edits on ${filePath}. File content unchanged. Re-read and provide different content.`,
+    )
+  }
+  noopLoopCounter.set(filePath, count + 1)
+}
+
+export function resetNoopLoop(filePath: string): void {
+  noopLoopCounter.delete(filePath)
+}
+
+export function incrementNoopLoop(filePath: string): void {
+  const count = noopLoopCounter.get(filePath) ?? 0
+  noopLoopCounter.set(filePath, count + 1)
+}

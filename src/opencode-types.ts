@@ -2,6 +2,11 @@
  * Minimal OpenCode types - shim for plugin development
  */
 
+export interface Response {
+  ok: boolean
+  json(): Promise<any>
+}
+
 export interface ToolContext {
   directory: string
   api: {
@@ -32,23 +37,31 @@ export interface BooleanSchema {
   optional(): BooleanSchema
 }
 
+export interface NumberSchema {
+  describe(desc: string): NumberSchema
+  optional(): NumberSchema
+}
+
 export interface ArraySchema<T extends ToolSchema = ToolSchema> {
   describe(desc: string): ArraySchema<T>
+  optional(): ArraySchema<T>
 }
 
 export interface ObjectSchema<T extends Record<string, ToolSchema> = Record<string, ToolSchema>> {
   describe(desc: string): ObjectSchema<T>
+  optional(): ObjectSchema<T>
 }
 
 export interface UnionSchema<T extends ToolSchema[] = ToolSchema[]> {
   describe(desc: string): UnionSchema<T>
+  optional(): UnionSchema<T>
 }
 
 export interface LiteralSchema<T extends string | number | boolean = string | number | boolean> {
   describe(desc: string): LiteralSchema<T>
 }
 
-export type ToolSchema = StringSchema | BooleanSchema | ArraySchema | ObjectSchema | UnionSchema | LiteralSchema
+export type ToolSchema = StringSchema | BooleanSchema | NumberSchema | ArraySchema | ObjectSchema | UnionSchema | LiteralSchema
 
 export interface ToolDefinition {
   description: string
@@ -73,14 +86,24 @@ const self = {
       }
       return schema
     },
+    number: (): NumberSchema => {
+      const schema: NumberSchema = {
+        describe: (desc: string) => self.schema.number(),
+        optional: () => self.schema.number(),
+      }
+      return schema
+    },
     array: <T extends ToolSchema>(schema: T): ArraySchema<T> => ({
       describe: (desc: string) => self.schema.array(schema),
+      optional: () => self.schema.array(schema),
     }),
     object: <T extends Record<string, ToolSchema>>(shape: T): ObjectSchema<T> => ({
       describe: (desc: string) => self.schema.object(shape),
+      optional: () => self.schema.object(shape),
     }),
     union: <T extends ToolSchema[]>(schemas: T): UnionSchema<T> => ({
       describe: (desc: string) => self.schema.union(schemas),
+      optional: () => self.schema.union(schemas),
     }),
     literal: <T extends string | number | boolean>(value: T): LiteralSchema<T> => ({
       describe: (desc: string) => self.schema.literal(value),

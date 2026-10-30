@@ -18,14 +18,24 @@ const self = {
             };
             return schema;
         },
+        number: () => {
+            const schema = {
+                describe: (desc) => self.schema.number(),
+                optional: () => self.schema.number(),
+            };
+            return schema;
+        },
         array: (schema) => ({
             describe: (desc) => self.schema.array(schema),
+            optional: () => self.schema.array(schema),
         }),
         object: (shape) => ({
             describe: (desc) => self.schema.object(shape),
+            optional: () => self.schema.object(shape),
         }),
         union: (schemas) => ({
             describe: (desc) => self.schema.union(schemas),
+            optional: () => self.schema.union(schemas),
         }),
         literal: (value) => ({
             describe: (desc) => self.schema.literal(value),

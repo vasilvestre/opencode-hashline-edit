@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest"
 import { applyHashlineEdits, applyHashlineEditsWithReport } from "./edit-operations"
 import { normalizeHashlineEdits } from "./normalize-edits"
-import { computeLineHash } from "./validation"
+import { computeContextHash } from "./validation"
 import { canonicalizeFileText } from "./file-text-canonicalization"
 
-function makeHash(line: string): string {
-  return computeLineHash(line)
+function makeContextHash(lines: string[], index: number): string {
+  return computeContextHash(lines, index)
 }
 
 function makeEdit(op: "replace" | "append" | "prepend", pos: string, lines: string | string[], end?: string) {
@@ -15,7 +15,7 @@ function makeEdit(op: "replace" | "append" | "prepend", pos: string, lines: stri
 describe("edit-operations", () => {
   const sampleLines = ["line 1", "line 2", "line 3", "line 4", "line 5"]
   const sampleContent = sampleLines.join("\n")
-  const hashes = sampleLines.map(makeHash)
+  const hashes = sampleLines.map((_, i) => makeContextHash(sampleLines, i))
 
   describe("applyHashlineEdits", () => {
     it("replaces a single line", () => {
@@ -132,7 +132,7 @@ describe("edit-operations", () => {
     it("handles CRLF line endings", () => {
       const content = "line 1\nline 2\nline 3" // canonicalizeFileText strips \r
       const lines = content.split("\n")
-      const hashesCRLF = lines.map(makeHash)
+      const hashesCRLF = lines.map((_, i) => makeContextHash(lines, i))
       const edits = normalizeHashlineEdits([
         makeEdit("replace", `2#${hashesCRLF[1]}`, "NEW"),
       ])
@@ -143,7 +143,7 @@ describe("edit-operations", () => {
     it("handles trailing newline", () => {
       const content = "line 1\nline 2\n"
       const lines = content.split("\n")
-      const hashesTrailing = lines.map(makeHash)
+      const hashesTrailing = lines.map((_, i) => makeContextHash(lines, i))
       const edits = normalizeHashlineEdits([
         makeEdit("append", `2#${hashesTrailing[1]}`, "line 3"),
       ])

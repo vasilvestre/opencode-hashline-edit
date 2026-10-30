@@ -1,12 +1,14 @@
-import { HashlineEdit, isReplaceEdit, isAppendEdit, isPrependEdit } from "./types"
+import { HashlineEdit, isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types"
+import { parseLineRef, computeContextHash } from "./validation"
 
 export function applySetLine(
   lines: string[],
   posRef: string,
   newLines: string | string[],
-  _options: { skipValidation?: boolean } = {},
+  _options: { skipValidation?: boolean; hashLength?: number } = {},
 ): string[] {
-  const parsed = parsePos(posRef)
+  const { hashLength = 2 } = _options
+  const parsed = parseLineRef(posRef, hashLength)
   if (!parsed) throw new Error(`Invalid pos ref: ${posRef}`)
   const { line } = parsed
 
@@ -29,10 +31,11 @@ export function applyReplaceLines(
   posRef: string,
   endRef: string,
   newLines: string | string[],
-  _options: { skipValidation?: boolean } = {},
+  _options: { skipValidation?: boolean; hashLength?: number } = {},
 ): string[] {
-  const parsedPos = parsePos(posRef)
-  const parsedEnd = parsePos(endRef)
+  const { hashLength = 2 } = _options
+  const parsedPos = parseLineRef(posRef, hashLength)
+  const parsedEnd = parseLineRef(endRef, hashLength)
   if (!parsedPos || !parsedEnd) throw new Error(`Invalid pos/end ref`)
 
   const { line: startLine } = parsedPos
@@ -54,9 +57,10 @@ export function applyInsertAfter(
   lines: string[],
   posRef: string,
   newLines: string | string[],
-  _options: { skipValidation?: boolean } = {},
+  _options: { skipValidation?: boolean; hashLength?: number } = {},
 ): string[] {
-  const parsed = parsePos(posRef)
+  const { hashLength = 2 } = _options
+  const parsed = parseLineRef(posRef, hashLength)
   if (!parsed) throw new Error(`Invalid pos ref: ${posRef}`)
   const { line } = parsed
 
@@ -76,9 +80,10 @@ export function applyInsertBefore(
   lines: string[],
   posRef: string,
   newLines: string | string[],
-  _options: { skipValidation?: boolean } = {},
+  _options: { skipValidation?: boolean; hashLength?: number } = {},
 ): string[] {
-  const parsed = parsePos(posRef)
+  const { hashLength = 2 } = _options
+  const parsed = parseLineRef(posRef, hashLength)
   if (!parsed) throw new Error(`Invalid pos ref: ${posRef}`)
   const { line } = parsed
 
@@ -104,8 +109,22 @@ export function applyPrepend(lines: string[], newLines: string | string[]): stri
   return [...linesArr, ...lines]
 }
 
-function parsePos(ref: string): { line: number } | null {
-  const match = ref.match(/^([0-9]+)#([A-Z0-9]{2})$/)
-  if (!match) return null
-  return { line: parseInt(match[1], 10) }
+export function applyReplaceText(
+  lines: string[],
+  oldText: string,
+  newText: string,
+): string[] {
+  const content = lines.join("\n")
+  const index = content.indexOf(oldText)
+  if (index === -1) {
+    throw new Error(`Text not found: "${oldText}"`)
+  }
+  // Check for uniqueness
+  const secondIndex = content.indexOf(oldText, index + 1)
+  if (secondIndex !== -1) {
+    throw new Error(`Text matches multiple locations: "${oldText}"`)
+  }
+
+  const newContent = content.slice(0, index) + newText + content.slice(index + oldText.length)
+  return newContent.split("\n")
 }

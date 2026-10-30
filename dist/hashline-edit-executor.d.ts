@@ -8,6 +8,7 @@ interface HashlineEditArgs {
     edits: RawHashlineEdit[];
     delete?: boolean;
     rename?: string;
+    hashLength?: number;
 }
 interface PluginContextWithClient {
     client?: FormatterClient;

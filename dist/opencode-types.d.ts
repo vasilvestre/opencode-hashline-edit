@@ -1,6 +1,10 @@
 /**
  * Minimal OpenCode types - shim for plugin development
  */
+export interface Response {
+    ok: boolean;
+    json(): Promise<any>;
+}
 export interface ToolContext {
     directory: string;
     api: {
@@ -30,19 +34,26 @@ export interface BooleanSchema {
     describe(desc: string): BooleanSchema;
     optional(): BooleanSchema;
 }
+export interface NumberSchema {
+    describe(desc: string): NumberSchema;
+    optional(): NumberSchema;
+}
 export interface ArraySchema<T extends ToolSchema = ToolSchema> {
     describe(desc: string): ArraySchema<T>;
+    optional(): ArraySchema<T>;
 }
 export interface ObjectSchema<T extends Record<string, ToolSchema> = Record<string, ToolSchema>> {
     describe(desc: string): ObjectSchema<T>;
+    optional(): ObjectSchema<T>;
 }
 export interface UnionSchema<T extends ToolSchema[] = ToolSchema[]> {
     describe(desc: string): UnionSchema<T>;
+    optional(): UnionSchema<T>;
 }
 export interface LiteralSchema<T extends string | number | boolean = string | number | boolean> {
     describe(desc: string): LiteralSchema<T>;
 }
-export type ToolSchema = StringSchema | BooleanSchema | ArraySchema | ObjectSchema | UnionSchema | LiteralSchema;
+export type ToolSchema = StringSchema | BooleanSchema | NumberSchema | ArraySchema | ObjectSchema | UnionSchema | LiteralSchema;
 export interface ToolDefinition {
     description: string;
     args: Record<string, ToolSchema>;
@@ -57,6 +68,7 @@ export declare const tool: {
     readonly schema: {
         readonly string: () => StringSchema;
         readonly boolean: () => BooleanSchema;
+        readonly number: () => NumberSchema;
         readonly array: <T extends ToolSchema>(schema: T) => ArraySchema<T>;
         readonly object: <T extends Record<string, ToolSchema>>(shape: T) => ObjectSchema<T>;
         readonly union: <T extends ToolSchema[]>(schemas: T) => UnionSchema<T>;

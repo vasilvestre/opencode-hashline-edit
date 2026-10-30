@@ -1,15 +1,50 @@
 /**
  * Hashline constants - ported from @oh-my-opencode/hashline-core
- * LINE#ID format: line number + 2-char content hash
+ * LINE#ID format: line number + 2-char content hash (configurable 2-4)
  */
 
 export const NIBBLE_STR = "ZPMQVRWSNKTXJBYH"
 
-export const HASHLINE_DICT = Array.from({ length: 256 }, (_, i) => {
-  const high = i >>> 4
-  const low = i & 0x0f
-  return `${NIBBLE_STR[high]}${NIBBLE_STR[low]}`
-})
+export const DEFAULT_HASH_LENGTH = 2
+export const MIN_HASH_LENGTH = 2
+export const MAX_HASH_LENGTH = 4
 
-export const HASHLINE_REF_PATTERN = /^([0-9]+)#([ZPMQVRWSNKTXJBYH]{2})$/
-export const HASHLINE_OUTPUT_PATTERN = /^([0-9]+)#([ZPMQVRWSNKTXJBYH]{2})\|(.*)$/
+export function buildHashDict(hashLength: number): string[] {
+  const dict: string[] = []
+  const combinations = Math.pow(16, hashLength)
+  for (let i = 0; i < combinations; i++) {
+    let hash = ""
+    let value = i
+    for (let j = 0; j < hashLength; j++) {
+      hash = NIBBLE_STR[value & 0x0f] + hash
+      value >>>= 4
+    }
+    dict.push(hash)
+  }
+  return dict
+}
+
+export const HASHLINE_DICT_2 = buildHashDict(2)
+
+export function buildRefPattern(hashLength: number): RegExp {
+  return new RegExp(`^([0-9]+)#([${NIBBLE_STR}]{${hashLength}})$`)
+}
+
+export function buildOutputPattern(hashLength: number): RegExp {
+  return new RegExp(`^([0-9]+)#([${NIBBLE_STR}]{${hashLength}})\\|(.*)$`)
+}
+
+export const HASHLINE_REF_PATTERN = buildRefPattern(DEFAULT_HASH_LENGTH)
+export const HASHLINE_OUTPUT_PATTERN = buildOutputPattern(DEFAULT_HASH_LENGTH)
+
+export interface HashlineConfig {
+  hashLength: number
+  grep: boolean
+  replaceText: boolean
+}
+
+export const DEFAULT_CONFIG: HashlineConfig = {
+  hashLength: DEFAULT_HASH_LENGTH,
+  grep: false,
+  replaceText: true,
+}

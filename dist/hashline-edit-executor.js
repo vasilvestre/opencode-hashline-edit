@@ -5,14 +5,15 @@ import { applyHashlineEditsWithReport } from "./edit-operations";
 import { countLineDiffs, generateUnifiedDiff } from "./diff-utils";
 import { canonicalizeFileText, restoreFileText } from "./file-text-canonicalization";
 import { normalizeHashlineEdits } from "./normalize-edits";
-import { HashlineMismatchError } from "./validation";
+import { HashlineMismatchError, NoopLoopError, checkNoopLoop, resetNoopLoop } from "./validation";
 import { runFormattersForFile } from "./formatter-trigger";
+import { DEFAULT_CONFIG } from "./constants";
 function canCreateFromMissingFile(edits) {
     if (edits.length === 0)
         return false;
     return edits.every((edit) => (edit.op === "append" || edit.op === "prepend") && !edit.pos);
 }
-function buildSuccessMeta(effectivePath, beforeContent, afterContent, noopEdits, deduplicatedEdits) {
+function buildSuccessMeta(effectivePath, beforeContent, afterContent, noopEdits, deduplicatedEdits, freshAnchors) {
     const unifiedDiff = generateUnifiedDiff(beforeContent, afterContent, effectivePath);
     const { additions, deletions } = countLineDiffs(beforeContent, afterContent);
     const beforeLines = beforeContent.split("\n");
@@ -35,6 +36,7 @@ function buildSuccessMeta(effectivePath, beforeContent, afterContent, noopEdits,
             noopEdits,
             deduplicatedEdits,
             firstChangedLine,
+            freshAnchors: freshAnchors?.map((a) => `${a.line}#${a.hash}|${a.content}`),
             filediff: {
                 file: effectivePath,
                 path: effectivePath,
@@ -47,11 +49,17 @@ function buildSuccessMeta(effectivePath, beforeContent, afterContent, noopEdits,
         },
     };
 }
+function formatFreshAnchors(anchors) {
+    if (!anchors || anchors.length === 0)
+        return "";
+    const lines = anchors.map((a) => `${a.line}#${a.hash}|${a.content}`);
+    return `\n--- Fresh Anchors ---\n${lines.join("\n")}`;
+}
 export async function executeHashlineEditTool(args, context, pluginCtx) {
     try {
         const metadataContext = context;
         const filePath = args.filePath;
-        const { delete: deleteMode, rename } = args;
+        const { delete: deleteMode, rename, hashLength = DEFAULT_CONFIG.hashLength } = args;
         if (deleteMode && rename) {
             return "Error: delete and rename cannot be used together";
         }
@@ -61,7 +69,7 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
         if (!deleteMode && (!args.edits || !Array.isArray(args.edits) || args.edits.length === 0)) {
             return "Error: edits parameter must be a non-empty array";
         }
-        const edits = deleteMode ? [] : normalizeHashlineEdits(args.edits);
+        const edits = deleteMode ? [] : normalizeHashlineEdits(args.edits, hashLength);
         // Use OpenCode v2 filesystem API
         const readResponse = await context.api.get(`/api/fs/read/${encodeURIComponent(filePath)}`);
         const exists = readResponse.ok;
@@ -81,17 +89,30 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
             });
             return `Successfully deleted ${filePath}`;
         }
-        const oldEnvelope = canonicalizeFileText(rawOldContent);
-        const applyResult = applyHashlineEditsWithReport(oldEnvelope.content, edits);
+        const oldEnvelope = canonicalizeFileText(rawOldContent, hashLength);
+        const applyResult = applyHashlineEditsWithReport(oldEnvelope.content, edits, hashLength);
         const canonicalNewContent = applyResult.content;
+        // Noop loop guard
         if (canonicalNewContent === oldEnvelope.content && !rename) {
+            try {
+                // This will throw NoopLoopError if 3 consecutive no-ops
+                checkNoopLoop(filePath);
+            }
+            catch (e) {
+                if (e instanceof NoopLoopError) {
+                    return `Error: ${e.message}`;
+                }
+                throw e;
+            }
             let diagnostic = `No changes made to ${filePath}. The edits produced identical content.`;
             if (applyResult.noopEdits > 0) {
                 diagnostic += ` No-op edits: ${applyResult.noopEdits}. Re-read the file and provide content that differs from current lines.`;
             }
             return `Error: ${diagnostic}`;
         }
-        const writeContent = restoreFileText(canonicalNewContent, oldEnvelope);
+        // Successful edit - reset noop loop counter
+        resetNoopLoop(filePath);
+        const writeContent = restoreFileText(canonicalNewContent, oldEnvelope, hashLength);
         // Write via OpenCode v2 experimental API
         await context.api.post("/api/experimental/fs/write", {
             body: JSON.stringify({ path: filePath, content: writeContent }),
@@ -105,8 +126,8 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
                 const data = await formattedResponse.json();
                 const formattedContent = data.content ?? "";
                 if (formattedContent !== writeContent) {
-                    const formattedEnvelope = canonicalizeFileText(formattedContent);
-                    const formattedMeta = buildSuccessMeta(filePath, oldEnvelope.content, formattedEnvelope.content, applyResult.noopEdits, applyResult.deduplicatedEdits);
+                    const formattedEnvelope = canonicalizeFileText(formattedContent, hashLength);
+                    const formattedMeta = buildSuccessMeta(filePath, oldEnvelope.content, formattedEnvelope.content, applyResult.noopEdits, applyResult.deduplicatedEdits, applyResult.freshAnchors);
                     await publishToolMetadata(metadataContext, formattedMeta);
                     if (rename && rename !== filePath) {
                         await context.api.post("/api/experimental/fs/write", {
@@ -117,7 +138,7 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
                         });
                         return `Moved ${filePath} to ${rename}`;
                     }
-                    return `Updated ${filePath} (formatted)`;
+                    return `Updated ${filePath} (formatted)${formatFreshAnchors(applyResult.freshAnchors ?? [])}`;
                 }
             }
         }
@@ -130,17 +151,20 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
             });
         }
         const effectivePath = rename && rename !== filePath ? rename : filePath;
-        const meta = buildSuccessMeta(effectivePath, oldEnvelope.content, canonicalNewContent, applyResult.noopEdits, applyResult.deduplicatedEdits);
+        const meta = buildSuccessMeta(effectivePath, oldEnvelope.content, canonicalNewContent, applyResult.noopEdits, applyResult.deduplicatedEdits, applyResult.freshAnchors);
         await publishToolMetadata(metadataContext, meta);
         if (rename && rename !== filePath) {
             return `Moved ${filePath} to ${rename}`;
         }
-        return `Updated ${effectivePath}`;
+        return `Updated ${effectivePath}${formatFreshAnchors(applyResult.freshAnchors ?? [])}`;
     }
     catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (error instanceof HashlineMismatchError) {
             return `Error: hash mismatch - ${message}\nTip: reuse LINE#ID entries from the latest read/edit output, or batch related edits in one call.`;
+        }
+        if (error instanceof NoopLoopError) {
+            return `Error: ${message}`;
         }
         return `Error: ${message}`;
     }
