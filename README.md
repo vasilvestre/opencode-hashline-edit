@@ -21,11 +21,31 @@ npm install @vasilvestre/opencode-hashline-edit
 
 ## Usage
 
-```typescript
-// In your OpenCode plugin
-import { createHashlineEditTool } from "@vasilvestre/opencode-hashline-edit"
+### As an OpenCode plugin (recommended — direct use)
 
-const plugin = definePlugin({
+Add it to your OpenCode config, the `hashline_edit` tool becomes available to the AI automatically:
+
+```jsonc
+// opencode.jsonc (project) or ~/.config/opencode/opencode.jsonc (global)
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["@vasilvestre/opencode-hashline-edit"]
+}
+```
+
+The AI will read files with `LINE#ID` anchors and call the tool on its own.
+
+---
+
+### As a library (embed in your own plugin)
+
+If you're writing **your own OpenCode plugin** and want to include this tool:
+
+```typescript
+import { createHashlineEditTool } from "@vasilvestre/opencode-hashline-edit"
+import { definePlugin } from "@opencode/plugin"
+
+export default definePlugin({
   name: "my-plugin",
   tools: {
     hashline_edit: createHashlineEditTool(),
