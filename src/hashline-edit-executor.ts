@@ -2,7 +2,6 @@
  * Hashline edit tool executor - uses OpenCode v2 native APIs
  */
 
-import type { ToolContext, PluginContext, FormatterClient } from "./opencode-types"
 import { applyHashlineEditsWithReport } from "./edit-operations"
 import { countLineDiffs, generateUnifiedDiff } from "./diff-utils"
 import { canonicalizeFileText, restoreFileText } from "./file-text-canonicalization"
@@ -12,6 +11,26 @@ import { HashlineMismatchError, NoopLoopError, checkNoopLoop, resetNoopLoop } fr
 import { runFormattersForFile } from "./formatter-trigger"
 import { DEFAULT_CONFIG } from "./constants"
 
+export interface ToolContext {
+  sessionID: string
+  messageID: string
+  signal: AbortSignal
+  progress: (update: Record<string, any>) => Promise<void>
+  metadata?: (value: unknown) => void
+  // Runtime API (not in types but available)
+  api?: {
+    get: (path: string) => Promise<Response>
+    post: (path: string, options: { body: string }) => Promise<Response>
+    delete: (path: string, options: { body: string }) => Promise<Response>
+  }
+}
+
+interface PluginApi {
+  get: (path: string) => Promise<Response>
+  post: (path: string, options: { body: string }) => Promise<Response>
+  delete: (path: string, options: { body: string }) => Promise<Response>
+}
+
 interface HashlineEditArgs {
   filePath: string
   edits: RawHashlineEdit[]
@@ -20,12 +39,17 @@ interface HashlineEditArgs {
   hashLength?: number
 }
 
-interface ToolContextWithMetadata extends ToolContext {
-  metadata?: (value: unknown) => void
+interface PluginContextWithClient {
+  client?: {
+    api: {
+      post: (path: string, data: unknown) => Promise<unknown>
+    }
+  }
 }
 
-interface PluginContextWithClient {
-  client?: FormatterClient
+function getApi(context: ToolContext, pluginContext: PluginApi): PluginApi {
+  // Use context.api if available (runtime), otherwise use plugin context
+  return context.api ?? pluginContext
 }
 
 function canCreateFromMissingFile(edits: HashlineEdit[]): boolean {
@@ -89,11 +113,11 @@ function formatFreshAnchors(anchors: Array<{ line: number; hash: string; content
 
 export async function executeHashlineEditTool(
   args: HashlineEditArgs,
-  context: ToolContext,
+  toolContext: ToolContext,
+  pluginContext: PluginApi,
   pluginCtx?: PluginContextWithClient,
 ): Promise<string> {
   try {
-    const metadataContext = context as ToolContextWithMetadata
     const filePath = args.filePath
     const { delete: deleteMode, rename, hashLength = DEFAULT_CONFIG.hashLength } = args
 
@@ -111,7 +135,8 @@ export async function executeHashlineEditTool(
     const edits = deleteMode ? [] : normalizeHashlineEdits(args.edits, hashLength)
 
     // Use OpenCode v2 filesystem API
-    const readResponse = await context.api.get(`/api/fs/read/${encodeURIComponent(filePath)}`)
+    const api = getApi(toolContext, pluginContext)
+    const readResponse = await api.get(`/api/fs/read/${encodeURIComponent(filePath)}`)
     const exists = readResponse.ok
     let rawOldContent = ""
 
@@ -126,7 +151,7 @@ export async function executeHashlineEditTool(
 
     if (deleteMode) {
       if (!exists) return `Error: File not found: ${filePath}`
-      await context.api.delete(`/api/experimental/fs/write`, {
+      await api.delete(`/api/experimental/fs/write`, {
         body: JSON.stringify({ path: filePath, content: "", delete: true }),
       })
       return `Successfully deleted ${filePath}`
@@ -160,16 +185,17 @@ export async function executeHashlineEditTool(
     const writeContent = restoreFileText(canonicalNewContent, oldEnvelope, hashLength)
 
     // Write via OpenCode v2 experimental API
-    await context.api.post("/api/experimental/fs/write", {
+    await api.post("/api/experimental/fs/write", {
       body: JSON.stringify({ path: filePath, content: writeContent }),
     })
 
     // Run formatters if client available
     if (pluginCtx?.client) {
-      await runFormattersForFile(pluginCtx.client, context.directory, filePath)
+      // Note: directory not available in toolContext, using filePath as base
+      await runFormattersForFile(pluginCtx.client, filePath, filePath)
 
       // Re-read formatted content
-      const formattedResponse = await context.api.get(
+      const formattedResponse = await api.get(
         `/api/fs/read/${encodeURIComponent(filePath)}`,
       )
       if (formattedResponse.ok) {
@@ -185,13 +211,13 @@ export async function executeHashlineEditTool(
             applyResult.deduplicatedEdits,
             applyResult.freshAnchors,
           )
-          await publishToolMetadata(metadataContext, formattedMeta)
+          await publishToolMetadata(toolContext, formattedMeta)
 
           if (rename && rename !== filePath) {
-            await context.api.post("/api/experimental/fs/write", {
+            await api.post("/api/experimental/fs/write", {
               body: JSON.stringify({ path: rename, content: formattedContent }),
             })
-            await context.api.post("/api/experimental/fs/write", {
+            await api.post("/api/experimental/fs/write", {
               body: JSON.stringify({ path: filePath, content: "", delete: true }),
             })
             return `Moved ${filePath} to ${rename}`
@@ -202,10 +228,10 @@ export async function executeHashlineEditTool(
     }
 
     if (rename && rename !== filePath) {
-      await context.api.post("/api/experimental/fs/write", {
+      await api.post("/api/experimental/fs/write", {
         body: JSON.stringify({ path: rename, content: writeContent }),
       })
-      await context.api.post("/api/experimental/fs/write", {
+      await api.post("/api/experimental/fs/write", {
         body: JSON.stringify({ path: filePath, content: "", delete: true }),
       })
     }
@@ -220,7 +246,7 @@ export async function executeHashlineEditTool(
       applyResult.freshAnchors,
     )
 
-    await publishToolMetadata(metadataContext, meta)
+    await publishToolMetadata(toolContext, meta)
 
     if (rename && rename !== filePath) {
       return `Moved ${filePath} to ${rename}`
@@ -240,7 +266,7 @@ export async function executeHashlineEditTool(
 }
 
 async function publishToolMetadata(
-  context: ToolContextWithMetadata,
+  context: ToolContext,
   meta: unknown,
 ): Promise<void> {
   if (context.metadata) {

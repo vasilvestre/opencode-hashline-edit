@@ -8,6 +8,10 @@ import { normalizeHashlineEdits } from "./normalize-edits";
 import { HashlineMismatchError, NoopLoopError, checkNoopLoop, resetNoopLoop } from "./validation";
 import { runFormattersForFile } from "./formatter-trigger";
 import { DEFAULT_CONFIG } from "./constants";
+function getApi(context, pluginContext) {
+    // Use context.api if available (runtime), otherwise use plugin context
+    return context.api ?? pluginContext;
+}
 function canCreateFromMissingFile(edits) {
     if (edits.length === 0)
         return false;
@@ -55,9 +59,8 @@ function formatFreshAnchors(anchors) {
     const lines = anchors.map((a) => `${a.line}#${a.hash}|${a.content}`);
     return `\n--- Fresh Anchors ---\n${lines.join("\n")}`;
 }
-export async function executeHashlineEditTool(args, context, pluginCtx) {
+export async function executeHashlineEditTool(args, toolContext, pluginContext, pluginCtx) {
     try {
-        const metadataContext = context;
         const filePath = args.filePath;
         const { delete: deleteMode, rename, hashLength = DEFAULT_CONFIG.hashLength } = args;
         if (deleteMode && rename) {
@@ -71,7 +74,8 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
         }
         const edits = deleteMode ? [] : normalizeHashlineEdits(args.edits, hashLength);
         // Use OpenCode v2 filesystem API
-        const readResponse = await context.api.get(`/api/fs/read/${encodeURIComponent(filePath)}`);
+        const api = getApi(toolContext, pluginContext);
+        const readResponse = await api.get(`/api/fs/read/${encodeURIComponent(filePath)}`);
         const exists = readResponse.ok;
         let rawOldContent = "";
         if (exists) {
@@ -84,7 +88,7 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
         if (deleteMode) {
             if (!exists)
                 return `Error: File not found: ${filePath}`;
-            await context.api.delete(`/api/experimental/fs/write`, {
+            await api.delete(`/api/experimental/fs/write`, {
                 body: JSON.stringify({ path: filePath, content: "", delete: true }),
             });
             return `Successfully deleted ${filePath}`;
@@ -114,26 +118,27 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
         resetNoopLoop(filePath);
         const writeContent = restoreFileText(canonicalNewContent, oldEnvelope, hashLength);
         // Write via OpenCode v2 experimental API
-        await context.api.post("/api/experimental/fs/write", {
+        await api.post("/api/experimental/fs/write", {
             body: JSON.stringify({ path: filePath, content: writeContent }),
         });
         // Run formatters if client available
         if (pluginCtx?.client) {
-            await runFormattersForFile(pluginCtx.client, context.directory, filePath);
+            // Note: directory not available in toolContext, using filePath as base
+            await runFormattersForFile(pluginCtx.client, filePath, filePath);
             // Re-read formatted content
-            const formattedResponse = await context.api.get(`/api/fs/read/${encodeURIComponent(filePath)}`);
+            const formattedResponse = await api.get(`/api/fs/read/${encodeURIComponent(filePath)}`);
             if (formattedResponse.ok) {
                 const data = await formattedResponse.json();
                 const formattedContent = data.content ?? "";
                 if (formattedContent !== writeContent) {
                     const formattedEnvelope = canonicalizeFileText(formattedContent, hashLength);
                     const formattedMeta = buildSuccessMeta(filePath, oldEnvelope.content, formattedEnvelope.content, applyResult.noopEdits, applyResult.deduplicatedEdits, applyResult.freshAnchors);
-                    await publishToolMetadata(metadataContext, formattedMeta);
+                    await publishToolMetadata(toolContext, formattedMeta);
                     if (rename && rename !== filePath) {
-                        await context.api.post("/api/experimental/fs/write", {
+                        await api.post("/api/experimental/fs/write", {
                             body: JSON.stringify({ path: rename, content: formattedContent }),
                         });
-                        await context.api.post("/api/experimental/fs/write", {
+                        await api.post("/api/experimental/fs/write", {
                             body: JSON.stringify({ path: filePath, content: "", delete: true }),
                         });
                         return `Moved ${filePath} to ${rename}`;
@@ -143,16 +148,16 @@ export async function executeHashlineEditTool(args, context, pluginCtx) {
             }
         }
         if (rename && rename !== filePath) {
-            await context.api.post("/api/experimental/fs/write", {
+            await api.post("/api/experimental/fs/write", {
                 body: JSON.stringify({ path: rename, content: writeContent }),
             });
-            await context.api.post("/api/experimental/fs/write", {
+            await api.post("/api/experimental/fs/write", {
                 body: JSON.stringify({ path: filePath, content: "", delete: true }),
             });
         }
         const effectivePath = rename && rename !== filePath ? rename : filePath;
         const meta = buildSuccessMeta(effectivePath, oldEnvelope.content, canonicalNewContent, applyResult.noopEdits, applyResult.deduplicatedEdits, applyResult.freshAnchors);
-        await publishToolMetadata(metadataContext, meta);
+        await publishToolMetadata(toolContext, meta);
         if (rename && rename !== filePath) {
             return `Moved ${filePath} to ${rename}`;
         }

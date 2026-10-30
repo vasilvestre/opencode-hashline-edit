@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
-    "@vasilvestre/opencode-hashline-edit"
+    "/home/vsilvestre/projets/oss/opencode-hashline-edit"
   ]
 }
