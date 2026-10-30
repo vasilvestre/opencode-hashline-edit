@@ -1,0 +1,1 @@
+{"version":3,"file":"diff-utils.d.ts","sourceRoot":"","sources":["../src/diff-utils.ts"],"names":[],"mappings":"AAAA;;GAEG;AAEH,wBAAgB,cAAc,CAAC,MAAM,EAAE,MAAM,EAAE,KAAK,EAAE,MAAM,GAAG;IAC7D,SAAS,EAAE,MAAM,CAAA;IACjB,SAAS,EAAE,MAAM,CAAA;CAClB,CAsCA;AAED,wBAAgB,mBAAmB,CACjC,MAAM,EAAE,MAAM,EACd,KAAK,EAAE,MAAM,EACb,QAAQ,EAAE,MAAM,GACf,MAAM,CA6ER"}

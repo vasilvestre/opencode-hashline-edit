@@ -1,0 +1,37 @@
+{
+  "name": "@vasilvestre/opencode-hashline-edit",
+  "version": "1.0.0",
+  "description": "LINE#ID edit tool for OpenCode v2 - safe, hash-validated line-based file editing",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "edit",
+    "hashline",
+    "line-edit"
+  ],
+  "author": "Valentin Silvestre",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vasilvestre/opencode-hashline-edit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}
