@@ -1,5 +1,5 @@
 /**
- * Hashline edit tool executor - uses OpenCode v2 native APIs
+ * Hashline edit tool executor - uses Node.js fs for file operations
  */
 import type { RawHashlineEdit } from "./types";
 export interface ToolContext {
@@ -8,24 +8,6 @@ export interface ToolContext {
     signal: AbortSignal;
     progress: (update: Record<string, any>) => Promise<void>;
     metadata?: (value: unknown) => void;
-    api?: {
-        get: (path: string) => Promise<Response>;
-        post: (path: string, options: {
-            body: string;
-        }) => Promise<Response>;
-        delete: (path: string, options: {
-            body: string;
-        }) => Promise<Response>;
-    };
-}
-interface PluginApi {
-    get: (path: string) => Promise<Response>;
-    post: (path: string, options: {
-        body: string;
-    }) => Promise<Response>;
-    delete: (path: string, options: {
-        body: string;
-    }) => Promise<Response>;
 }
 interface HashlineEditArgs {
     filePath: string;
@@ -41,6 +23,6 @@ interface PluginContextWithClient {
         };
     };
 }
-export declare function executeHashlineEditTool(args: HashlineEditArgs, toolContext: ToolContext, pluginContext: PluginApi, pluginCtx?: PluginContextWithClient): Promise<string>;
+export declare function executeHashlineEditTool(args: HashlineEditArgs, toolContext: ToolContext, _pluginContext: unknown, pluginCtx?: PluginContextWithClient): Promise<string>;
 export {};
 //# sourceMappingURL=hashline-edit-executor.d.ts.map

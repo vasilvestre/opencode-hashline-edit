@@ -4,8 +4,8 @@
 export { HashlineMismatchError, NoopLoopError } from "./types";
 export declare function computeLineHash(content: string, hashLength?: number): string;
 export declare function computeContextHash(lines: string[], lineIndex: number, hashLength?: number): string;
-export declare const HASHLINE_REF_PATTERN: RegExp;
-export declare const HASHLINE_OUTPUT_PATTERN: RegExp;
+export declare const HASHLINE_REF_PATTERN: any;
+export declare const HASHLINE_OUTPUT_PATTERN: any;
 export declare function getRefPattern(hashLength: number): RegExp;
 export declare function getOutputPattern(hashLength: number): RegExp;
 export declare function validateLineRefs(lines: string[], refs: Map<string, {

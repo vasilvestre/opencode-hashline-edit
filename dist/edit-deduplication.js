@@ -1,4 +1,4 @@
-import { isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types";
+import { HashlineEdit, isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types";
 export function dedupeEdits(edits) {
     const seen = new Map();
     let deduplicatedEdits = 0;

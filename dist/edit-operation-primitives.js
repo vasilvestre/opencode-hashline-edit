@@ -1,4 +1,5 @@
-import { parseLineRef } from "./validation";
+import { HashlineEdit, isReplaceEdit, isAppendEdit, isPrependEdit, isReplaceTextEdit } from "./types";
+import { parseLineRef, computeContextHash } from "./validation";
 export function applySetLine(lines, posRef, newLines, _options = {}) {
     const { hashLength = 2 } = _options;
     const parsed = parseLineRef(posRef, hashLength);

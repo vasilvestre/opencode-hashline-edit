@@ -3,7 +3,7 @@
  */
 import { HashlineMismatchError, NoopLoopError } from "./types";
 export { HashlineMismatchError, NoopLoopError } from "./types";
-import { NIBBLE_STR, DEFAULT_HASH_LENGTH, buildRefPattern, buildOutputPattern, buildHashDict } from "./constants";
+import { NIBBLE_STR, DEFAULT_HASH_LENGTH, MIN_HASH_LENGTH, MAX_HASH_LENGTH, buildRefPattern, buildOutputPattern, buildHashDict } from "./constants";
 export function computeLineHash(content, hashLength = DEFAULT_HASH_LENGTH) {
     let hash = 0;
     for (let i = 0; i < content.length; i++) {

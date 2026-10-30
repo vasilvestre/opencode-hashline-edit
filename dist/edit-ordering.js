@@ -1,3 +1,4 @@
+import { HashlineEdit } from "./types";
 import { parseLineRef } from "./validation";
 export function getEditLineNumber(edit) {
     if (edit.op === "replace" && edit.pos) {
