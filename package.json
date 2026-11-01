@@ -10,9 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:plugin": "tsc -p tsconfig.plugin.json",
     "dev": "tsc --watch",
-    "dev:plugin": "tsc -p tsconfig.plugin.json --watch",
     "test": "vitest run",
     "lint": "eslint src --ext .ts"
   },

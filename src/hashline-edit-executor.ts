@@ -187,7 +187,7 @@ export async function executeHashlineEditTool(
     // Successful edit - reset noop loop counter
     resetNoopLoop(filePath)
 
-    const writeContent = restoreFileText(canonicalNewContent, oldEnvelope, hashLength)
+    const writeContent = restoreFileText(canonicalNewContent)
 
     // Write file using Node.js fs
     await writeFileSafe(filePath, writeContent)

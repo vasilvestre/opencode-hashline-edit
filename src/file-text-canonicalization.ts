@@ -37,22 +37,7 @@ export function canonicalizeFileText(rawContent: string, hashLength: number = 2)
   }
 }
 
-export function restoreFileText(
-  canonicalContent: string,
-  envelope: CanonicalEnvelope,
-  hashLength: number = 2,
-): string {
-  const lines = canonicalContent.split("\n")
-  const result: string[] = []
-
-  for (let i = 0; i < lines.length; i++) {
-    const hash = envelope.lineHashes.get(i + 1)
-    if (hash) {
-      result.push(`${lines[i]} ${i + 1}#${hash}`)
-    } else {
-      result.push(lines[i])
-    }
-  }
-
-  return result.join("\n")
+// Tags belong to the tool output only: writing them back corrupts the file.
+export function restoreFileText(canonicalContent: string): string {
+  return canonicalContent
 }
