@@ -23,6 +23,8 @@ reproducing content.
 | `dist/` | build output, git-ignored, published |
 | `.github/workflows/ci.yml` | typecheck, tests, import check |
 | `.github/workflows/release.yml` | build, import check, publish |
+| `COMPLETION.md` | stale task log from an earlier session, not a spec |
+| `opencode.jsonc` | local dev config, points at an absolute path outside this repo |
 
 ## Hard rules
 
@@ -43,6 +45,12 @@ reproducing content.
 - **`dist/` is git-ignored but published.** `files` in `package.json` does not
   list it, so npm packs it from the working tree. The release workflow builds
   before `npm publish`; a manual publish must run `npx tsc` first.
+- **`COMPLETION.md` describes files that do not exist.** It names `src/plugin.ts`,
+  `tsconfig.plugin.json`, and the scripts `build:plugin` and `dev:plugin`. None
+  of them exist. The real entrypoint is `src/index.ts`, built by `tsc` from
+  `tsconfig.json`. Ignore the file; do not "restore" what it describes.
+- **`opencode.jsonc` holds an absolute path** (`/home/<user>/projets/oss/...`).
+  It is a local dev config. Do not copy it into a published file.
 
 ## Before you commit
 
