@@ -1,0 +1,1 @@
+{"version":3,"file":"edit-deduplication.d.ts","sourceRoot":"","sources":["../src/edit-deduplication.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,YAAY,EAAE,MAAM,YAAY,CAAA;AAG9C,MAAM,WAAW,YAAY;IAC3B,KAAK,EAAE,YAAY,EAAE,CAAA;IACrB,iBAAiB,EAAE,MAAM,CAAA;CAC1B;AAED,wBAAgB,WAAW,CAAC,KAAK,EAAE,YAAY,EAAE,GAAG,YAAY,CAiB/D"}
