@@ -88,9 +88,6 @@ export default Plugin.define({
         },
       })
 
-      // Missing IDs are ignored by update(), so a built-in tool may never be
-      // visible here. The hook below is the documented path for built-ins; keep
-      // both so anchors appear whichever registry the runtime exposes.
       editor.update("read", (tool) => {
         const execute = tool.execute
         tool.execute = async (input, context) => {
@@ -100,23 +97,7 @@ export default Plugin.define({
       })
     })
 
-    const readHook = await ctx.tool.hook("execute.after", async (event) => {
-      if (event.tool !== "read" || event.status !== "completed") return
-      const tagged = await withAnchors(event.result, event.input)
-      if (tagged === event.result || typeof tagged.content !== "string") return
-      try {
-        // The result object is ours in practice; a frozen one degrades to the
-        // untagged output instead of failing the read.
-        ;(event.result as { content?: string }).content = tagged.content
-      } catch {
-        return
-      }
-    })
-
-    return async () => {
-      await registration.dispose()
-      await readHook.dispose()
-    }
+    return () => registration.dispose()
   },
 })
 
