@@ -82,11 +82,13 @@ Updated src/file.ts
 Use these fresh anchors directly in the next edit call without re-reading.
 
 ## READING FILES
-When you read a file, each line includes its LINE#ID tag:
+The \`read\` tool is wrapped: every line comes back as \`LINE#ID|content\`.
 \`\`\`
-const x = 1          1#ZP
-function foo() {     2#AB
-  return x + 1       3#CD
-}                    4#EF
+1#ZP|const x = 1
+2#AB|function foo() {
+3#CD|  return x + 1
+4#EF|}
 \`\`\`
-Copy the LINE#ID tags exactly as shown for your edits.`
+Copy the LINE#ID tags exactly as shown for your edits. A read with \`offset\`
+and \`limit\` carries correct hashes too, because they are computed against the
+whole file.`

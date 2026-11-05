@@ -27,8 +27,4 @@ export function canonicalizeFileText(rawContent, hashLength = 2) {
         lineHashes,
     };
 }
-// Tags belong to the tool output only: writing them back corrupts the file.
-export function restoreFileText(canonicalContent) {
-    return canonicalContent;
-}
 //# sourceMappingURL=file-text-canonicalization.js.map

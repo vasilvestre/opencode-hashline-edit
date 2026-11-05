@@ -4,7 +4,7 @@
 
 import { applyHashlineEditsWithReport } from "./edit-operations.js"
 import { countLineDiffs, generateUnifiedDiff } from "./diff-utils.js"
-import { canonicalizeFileText, restoreFileText } from "./file-text-canonicalization.js"
+import { canonicalizeFileText } from "./file-text-canonicalization.js"
 import { normalizeHashlineEdits } from "./normalize-edits.js"
 import type { RawHashlineEdit, HashlineEdit } from "./types.js"
 import { HashlineMismatchError, NoopLoopError, checkNoopLoop, resetNoopLoop } from "./validation.js"
@@ -187,7 +187,7 @@ export async function executeHashlineEditTool(
     // Successful edit - reset noop loop counter
     resetNoopLoop(filePath)
 
-    const writeContent = restoreFileText(canonicalNewContent)
+    const writeContent = canonicalNewContent
 
     // Write file using Node.js fs
     await writeFileSafe(filePath, writeContent)
